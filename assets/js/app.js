@@ -537,10 +537,19 @@
 
     // copy count depends on bar width, so rebuild when the viewport changes
     var rz;
-    window.addEventListener("resize", function () {
+    window.addEventListener('resize', function () {
       clearTimeout(rz);
       rz = setTimeout(syncMarquee, 150);
     });
+
+    /* The copy count is derived from measured text width, and text measured
+       before the Ge'ez webfonts arrive is the wrong width — which produced too
+       few copies and left a visible gap in the strip. Re-measure once the fonts
+       are actually in, with a timeout fallback for browsers without the API. */
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(syncMarquee).catch(function () {});
+    }
+    setTimeout(syncMarquee, 600);
     setInterval(function () { renderStatus(); renderHubs(); }, 30000);
   }
 
