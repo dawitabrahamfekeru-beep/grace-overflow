@@ -142,6 +142,53 @@
       link.textContent = tr('cta.watchlive');
       link.hidden = false;
     }
+
+    syncMarquee();
+  }
+
+  /* Marquee.
+
+     Two copies is not enough: on a wide screen one copy of the message is
+     narrower than the bar, so a -50% slide would leave the strip visibly empty
+     for part of every cycle. Instead we lay down however many copies it takes
+     to cover the bar (k), then double that. Sliding -50% then travels exactly
+     k copies, which lands on a copy boundary, so the loop has no visible seam
+     at any width or in any language.
+
+     Duration is derived from the distance rather than fixed, so the text moves
+     at a constant readable speed whether the message is short English or long
+     Tigrinya. The clones are rebuilt on every render and on resize, so they can
+     never fall out of sync with the language or the live state. */
+  var MARQUEE_PX_PER_SEC = 55;
+
+  function syncMarquee() {
+    var bar = $('#statusbar');
+    var track = $('#statusTrack');
+    if (!bar || !track) return;
+    var original = $('.statusbar__in', track);
+    if (!original) return;
+
+    $$('.statusbar__in.is-clone', track).forEach(function (c) { c.remove(); });
+
+    var copyW = original.offsetWidth;
+    var barW = bar.clientWidth;
+    if (!copyW) return;
+
+    var k = Math.max(1, Math.ceil(barW / copyW));
+    var total = k * 2;
+
+    for (var i = 1; i < total; i++) {
+      var clone = original.cloneNode(true);
+      clone.classList.add('is-clone');
+      clone.setAttribute('aria-hidden', 'true');
+      // duplicate ids would break getElementById, and the copies are decorative
+      $$('[id]', clone).forEach(function (el) { el.removeAttribute('id'); });
+      // keep the copies out of the tab order — it is the same link repeated
+      $$('a', clone).forEach(function (a) { a.setAttribute('tabindex', '-1'); });
+      track.appendChild(clone);
+    }
+
+    track.style.animationDuration = Math.max(8, Math.round((k * copyW) / MARQUEE_PX_PER_SEC)) + 's';
   }
 
   /* ---- Countdown tiles ---- */
@@ -359,8 +406,8 @@
     var burger = $('#burger');
 
     if (header) {
-      var onScroll = function () { header.classList.toggle('is-stuck', window.scrollY > 8); };
-      window.addEventListener('scroll', onScroll, { passive: true });
+      var onScroll = function () { header.classList.toggle("is-stuck", window.scrollY > 8); };
+      window.addEventListener("scroll", onScroll, { passive: true });
       onScroll();
     }
 
@@ -487,6 +534,13 @@
     applyLang();
     renderCountdown();
     setInterval(renderCountdown, 1000);
+
+    // copy count depends on bar width, so rebuild when the viewport changes
+    var rz;
+    window.addEventListener("resize", function () {
+      clearTimeout(rz);
+      rz = setTimeout(syncMarquee, 150);
+    });
     setInterval(function () { renderStatus(); renderHubs(); }, 30000);
   }
 
